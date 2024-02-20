@@ -65,6 +65,7 @@ def train(T=500, cfg=True, img_size=16, input_channels=3, channels=32,
     logger = SummaryWriter(os.path.join("runs", experiment_name))
     l = len(train_loader)
 
+    p_uncod = 0.1
     min_train_loss = 1e10
     for epoch in range(1, num_epochs + 1):
         logging.info(f"Starting epoch {epoch}:")
@@ -73,23 +74,17 @@ def train(T=500, cfg=True, img_size=16, input_channels=3, channels=32,
         for i, (images, labels) in enumerate(pbar):
             images = images.to(device)
 
-            if diff_type == 'DDPM-cFg':
+            if diff_type == 'DDPM-cFg' and np.random.rand()>p_uncod:
                 # one-hot encode labels for classifier-free guidance
                 labels = labels.to(device)
                 labels = F.one_hot(labels, num_classes=num_classes).float()
-            else :
+            else:
                 labels = None
 
-            # Train a diffusion model with classifier-free guidance
-            # Do not forget randomly discard labels
-            p_uncod = 0.1
-
-            ...
-
-            t = ...
-            x_t, noise = ...
-            predicted_noise = ...
-            loss = ...
+            t = diffusion.sample_timesteps(images.shape[0]).to(device)
+            x_t, noise = diffusion.q_sample(images, t)
+            predicted_noise = model(x_t, t, labels)
+            loss = mse(predicted_noise, noise)
 
             optimizer.zero_grad()
             loss.backward()
@@ -137,7 +132,7 @@ def main():
     
     if not cfg:
         print(f"To train a classifier-free guidance model, activate the flag by running the script as follows>")
-        print(f"python ddm_train.py --cfg \n")
+        print(f"python ddpm_train.py --cfg \n")
         
 
     set_seed()
